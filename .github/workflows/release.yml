@@ -60,5 +60,25 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          generate_release_notes: false
+          body: |
+            ## DRM-RESHAPE v1.0.2
+
+            Drum-focused minimum-phase EQ and tone shaping by yeahwaah audio.
+
+            ### What’s included
+
+            - Six editable bands: LOW, MID, HIGH, TIGHT, SMOOTH, and AIR.
+            - Kick, Snare, Toms, Overheads, Room, and Full Kit starting points.
+            - Optional frequency-selective dynamic TIGHT and SMOOTH processing.
+            - Wet/dry blend, input/output trim, level compensation, bypass, and pre/post spectrum display.
+            - Windows x64 VST3 and Standalone builds.
+
+            ### Validation
+
+            Windows VST3 and Standalone builds passed. DSP checks cover response, stability, parameter updates, dynamic reduction, and a bounded CPU run.
+
+            ### Screenshot
+
+            ![DRM-RESHAPE plugin interface](https://github.com/elvicw/DRM-RESHAPE/releases/download/v1.0.2/DRM-RESHAPE-Screenshot.png)
           files: release/*
