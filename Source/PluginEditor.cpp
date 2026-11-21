@@ -70,6 +70,7 @@ DRMRESHAPEAudioProcessorEditor::DRMRESHAPEAudioProcessorEditor(DRMRESHAPEAudioPr
     buttonAttachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.parameters, "bypass", globalBypass));
     outputCompensation.setButtonText("LEVEL COMP"); outputCompensation.setColour(juce::ToggleButton::textColourId, muted); addAndMakeVisible(outputCompensation);
     buttonAttachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.parameters, "comp", outputCompensation));
+    resized();
     startTimerHz(24);
 }
 
