@@ -17,7 +17,7 @@ jobs:
         run: cmake -S . -B build -A x64 -DDRMRESHAPE_BUILD_TESTS=ON
       - name: Build and validate
         run: |
-          cmake --build build --config Release --target DRMRESHAPE_VST3 DRMRESHAPE_Standalone DRMRESHAPE_DSPTests
+          cmake --build build --config Release --parallel 2 --target DRMRESHAPE_VST3 DRMRESHAPE_Standalone DRMRESHAPE_DSPTests
           ctest --test-dir build -C Release --output-on-failure
       - name: Package
         shell: pwsh
