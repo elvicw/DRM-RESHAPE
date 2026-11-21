@@ -62,7 +62,7 @@ jobs:
         with:
           generate_release_notes: false
           body: |
-            ## DRM-RESHAPE v1.0.2
+            ## DRM-RESHAPE v1.0.3
 
             Drum-focused minimum-phase EQ and tone shaping by yeahwaah audio.
 
@@ -80,5 +80,5 @@ jobs:
 
             ### Screenshot
 
-            ![DRM-RESHAPE plugin interface](https://github.com/elvicw/DRM-RESHAPE/releases/download/v1.0.2/DRM-RESHAPE-Screenshot.png)
+            ![DRM-RESHAPE plugin interface](https://github.com/elvicw/DRM-RESHAPE/releases/download/v1.0.3/DRM-RESHAPE-Screenshot.png)
           files: release/*

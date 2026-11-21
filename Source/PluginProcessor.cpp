@@ -4,9 +4,12 @@
 namespace
 {
 const juce::StringArray bandNames { "LOW", "MID", "HIGH", "TIGHT", "SMOOTH", "AIR" };
-juce::AudioParameterFloat* floatParam(const juce::String& id, const juce::String& name, float lo, float hi, float def, const juce::String& unit = {})
+juce::AudioParameterFloat* floatParam(const juce::String& id, const juce::String& name, float lo, float hi, float def,
+                                      const juce::String& unit = {}, int decimals = 1)
 {
-    return new juce::AudioParameterFloat(juce::ParameterID { id, 1 }, name, juce::NormalisableRange<float>(lo, hi), def, unit);
+    auto attributes = juce::AudioParameterFloatAttributes().withLabel(unit)
+        .withStringFromValueFunction([decimals](float value, int) { return juce::String(value, decimals); });
+    return new juce::AudioParameterFloat(juce::ParameterID { id, 1 }, name, juce::NormalisableRange<float>(lo, hi), def, attributes);
 }
 }
 
@@ -21,8 +24,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DRMRESHAPEAudioProcessor::cr
     {
         auto id = bandNames[i].toLowerCase();
         p.emplace_back(floatParam(id + "Gain", bandNames[i] + " Gain", -gainRanges[i], gainRanges[i], 0, " dB"));
-        p.emplace_back(floatParam(id + "Freq", bandNames[i] + " Frequency", 20, 20000, freqDefaults[i], " Hz"));
-        p.emplace_back(floatParam(id + "Q", bandNames[i] + " Q", 0.2f, 5.0f, i == 3 || i == 4 ? 1.2f : 0.707f));
+        p.emplace_back(floatParam(id + "Freq", bandNames[i] + " Frequency", 20, 20000, freqDefaults[i], " Hz", 0));
+        p.emplace_back(floatParam(id + "Q", bandNames[i] + " Q", 0.2f, 5.0f, i == 3 || i == 4 ? 1.2f : 0.707f, {}, 2));
         p.push_back(std::make_unique<AudioParameterBool>(ParameterID { id + "On", 1 }, bandNames[i] + " Enabled", true));
     }
     p.emplace_back(floatParam("input", "Input", -24, 24, 0, " dB"));
