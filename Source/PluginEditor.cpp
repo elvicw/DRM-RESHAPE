@@ -15,6 +15,7 @@ void setupSlider(juce::Slider& s, juce::Colour colour, bool compact=false)
     s.setColour(juce::Slider::textBoxTextColourId, text);
     s.setColour(juce::Slider::textBoxBackgroundColourId, panel);
     s.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    s.setNumDecimalPlacesToDisplay(1);
 }
 }
 
@@ -34,13 +35,13 @@ DRMRESHAPEAudioProcessorEditor::DRMRESHAPEAudioProcessorEditor(DRMRESHAPEAudioPr
         bandLabels[(size_t)i].setText(labels[i], juce::dontSendNotification); bandLabels[(size_t)i].setJustificationType(juce::Justification::centred); bandLabels[(size_t)i].setFont(juce::Font(13, juce::Font::bold)); bandLabels[(size_t)i].setColour(juce::Label::textColourId, i == 3 || i == 4 ? teal : text); addAndMakeVisible(bandLabels[(size_t)i]);
         bandEnabled[(size_t)i].setButtonText("ON"); bandEnabled[(size_t)i].setColour(juce::ToggleButton::textColourId, muted); addAndMakeVisible(bandEnabled[(size_t)i]);
         buttonAttachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.parameters, ids[i] + "On", bandEnabled[(size_t)i]));
-        setupSlider(gainControls[(size_t)i], i == 3 || i == 4 ? teal : accent); gainControls[(size_t)i].setTextValueSuffix(" dB"); addAndMakeVisible(gainControls[(size_t)i]);
+        setupSlider(gainControls[(size_t)i], i == 3 || i == 4 ? teal : accent); gainControls[(size_t)i].setNumDecimalPlacesToDisplay(1); gainControls[(size_t)i].setTextValueSuffix(" dB"); addAndMakeVisible(gainControls[(size_t)i]);
         auto stem = ids[i];
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor.parameters, stem + "Gain", gainControls[(size_t)i]));
-        setupSlider(freqControls[(size_t)i], accent, true); freqControls[(size_t)i].setTextValueSuffix(" Hz"); addAndMakeVisible(freqControls[(size_t)i]);
+        setupSlider(freqControls[(size_t)i], accent, true); freqControls[(size_t)i].setNumDecimalPlacesToDisplay(0); freqControls[(size_t)i].setTextValueSuffix(" Hz"); addAndMakeVisible(freqControls[(size_t)i]);
         freqControls[(size_t)i].setSliderStyle(juce::Slider::LinearHorizontal); freqControls[(size_t)i].setTextBoxStyle(juce::Slider::TextBoxRight, false, 58, 18);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor.parameters, stem + "Freq", freqControls[(size_t)i]));
-        setupSlider(qControls[(size_t)i], teal, true); addAndMakeVisible(qControls[(size_t)i]);
+        setupSlider(qControls[(size_t)i], teal, true); qControls[(size_t)i].setNumDecimalPlacesToDisplay(2); addAndMakeVisible(qControls[(size_t)i]);
         qControls[(size_t)i].setSliderStyle(juce::Slider::LinearHorizontal); qControls[(size_t)i].setTextBoxStyle(juce::Slider::TextBoxRight, false, 58, 18);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor.parameters, stem + "Q", qControls[(size_t)i]));
     }
@@ -57,7 +58,7 @@ DRMRESHAPEAudioProcessorEditor::DRMRESHAPEAudioProcessorEditor(DRMRESHAPEAudioPr
         const juce::StringArray suffixes { "Threshold", "Attack", "Release", "MaxGR" };
         const juce::StringArray units { " dB", " ms", " ms", " dB" };
         dynamicsLabels[(size_t)i].setText(prefix + " " + suffixes[control].toUpperCase(), juce::dontSendNotification); dynamicsLabels[(size_t)i].setJustificationType(juce::Justification::centred); dynamicsLabels[(size_t)i].setColour(juce::Label::textColourId, muted); addAndMakeVisible(dynamicsLabels[(size_t)i]);
-        setupSlider(dynamicsControls[(size_t)i], teal); dynamicsControls[(size_t)i].setTextValueSuffix(units[control]); addAndMakeVisible(dynamicsControls[(size_t)i]);
+        setupSlider(dynamicsControls[(size_t)i], teal); dynamicsControls[(size_t)i].setNumDecimalPlacesToDisplay(1); dynamicsControls[(size_t)i].setTextValueSuffix(units[control]); addAndMakeVisible(dynamicsControls[(size_t)i]);
         attachments.push_back(std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(processor.parameters, key + suffixes[control], dynamicsControls[(size_t)i]));
     }
     for (int i=0; i<2; ++i)
@@ -129,7 +130,7 @@ void DRMRESHAPEAudioProcessorEditor::paint(juce::Graphics& g)
 
 void DRMRESHAPEAudioProcessorEditor::resized()
 {
-    title.setBounds(26, 18, 310, 34); subtitle.setBounds(29, 52, 280, 18); mode.setBounds(getWidth()-255, 28, 145, 32); advanced.setBounds(getWidth()-102, 28, 76, 32);
+    title.setBounds(26, 18, 310, 34); subtitle.setBounds(29, 52, 280, 18); mode.setBounds(getWidth()-280, 28, 150, 32); advanced.setBounds(getWidth()-122, 28, 96, 32);
     const int colWidth=(getWidth()-100)/6;
     for (int i=0; i<6; ++i)
     {
