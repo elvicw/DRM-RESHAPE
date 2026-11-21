@@ -38,7 +38,7 @@ class DrumShaperDSP
 public:
     void prepare(double sampleRate, int maximumBlockSize, int channels);
     void reset() noexcept;
-    void setSettings(const Settings& settings) noexcept;
+    void setSettings(const Settings& settings, int blockSamples = 128) noexcept;
     void process(float* const* channels, int numChannels, int numSamples) noexcept;
     void updateDynamicReduction(int band, float reductionDb) noexcept;
     static float responseAt(const Settings& settings, double frequency, int bands = 6) noexcept;
@@ -53,6 +53,7 @@ private:
     std::array<BandSettings, 6> currentBands{};
     std::array<float, 6> dynamicReduction{};
     DynamicsSettings dynamics[2];
+    std::array<double, 2> attackCoefficients { 0.0, 0.0 }, releaseCoefficients { 0.0, 0.0 };
     std::array<std::array<Coefficients, 2>, 2> detectorCoefficients{};
     std::array<std::array<Coefficients, 2>, 2> dynamicCoefficients{};
     std::array<std::array<State, 2>, 2> detectorStates{};

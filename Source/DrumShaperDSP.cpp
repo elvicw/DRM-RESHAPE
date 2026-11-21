@@ -47,13 +47,28 @@ double DrumShaperDSP::run(const Coefficients& c, State& s, double x) noexcept
 void DrumShaperDSP::prepare(double sampleRate, int, int) { rate = sampleRate; reset(); }
 void DrumShaperDSP::reset() noexcept { for (auto& ch : states) for (auto& s : ch) s = {}; for (auto& ch : detectorStates) for (auto& s : ch) s = {}; for (auto& ch : detectorEnvelope) ch = {}; for (auto& ch : gainReduction) ch = {}; }
 
-void DrumShaperDSP::setSettings(const Settings& s) noexcept
+void DrumShaperDSP::setSettings(const Settings& s, int blockSamples) noexcept
 {
     dynamics[0] = s.tightDynamics; dynamics[1] = s.smoothDynamics;
+    for (int d=0; d<2; ++d)
+    {
+        attackCoefficients[(size_t)d] = std::exp(-1.0 / (rate * std::max(0.0001, (double)dynamics[d].attackMs * 0.001)));
+        releaseCoefficients[(size_t)d] = std::exp(-1.0 / (rate * std::max(0.0001, (double)dynamics[d].releaseMs * 0.001)));
+    }
+    const auto smoothing = std::clamp((double)blockSamples / std::max(1.0, rate * 0.025), 0.0, 1.0);
+    auto approach = [smoothing](float current, float target) {
+        const auto delta=target-current;
+        return std::abs(delta) < 0.001f ? target : current + (float)(delta*smoothing);
+    };
     for (size_t i=0; i<6; ++i)
     {
-        auto band = s.bands[i];
-        if (band.frequency != currentBands[i].frequency || band.q != currentBands[i].q || band.gainDb != currentBands[i].gainDb || band.enabled != currentBands[i].enabled || band.shape != currentBands[i].shape)
+        const auto& target = s.bands[i];
+        auto band=currentBands[i];
+        band.frequency=approach(band.frequency,target.frequency);
+        band.q=approach(band.q,target.q);
+        band.gainDb=approach(band.gainDb,target.gainDb);
+        band.enabled=target.enabled; band.shape=target.shape;
+        if (std::abs(band.frequency-currentBands[i].frequency)>0.0001f || std::abs(band.q-currentBands[i].q)>0.0001f || std::abs(band.gainDb-currentBands[i].gainDb)>0.0001f || band.enabled != currentBands[i].enabled || band.shape != currentBands[i].shape)
         {
             coefficients[i] = makeCoefficients(band, rate);
             currentBands[i] = band;
@@ -61,7 +76,7 @@ void DrumShaperDSP::setSettings(const Settings& s) noexcept
     }
     for (int d=0; d<2; ++d)
     {
-        auto detectorBand = s.bands[(size_t)(d == 0 ? 3 : 4)];
+        auto detectorBand = currentBands[(size_t)(d == 0 ? 3 : 4)];
         if (detectorBand.frequency == detectorFrequencyCache[(size_t)d] && detectorBand.q == detectorQCache[(size_t)d]) continue;
         detectorFrequencyCache[(size_t)d] = detectorBand.frequency;
         detectorQCache[(size_t)d] = detectorBand.q;
@@ -83,7 +98,6 @@ void DrumShaperDSP::updateDynamicReduction(int band, float reductionDb) noexcept
 void DrumShaperDSP::process(float* const* data, int numChannels, int numSamples) noexcept
 {
     const auto channels = std::min(numChannels, 2);
-    const auto attackAlpha = [this](float ms) { return std::exp(-1.0 / (rate * std::max(0.0001, (double)ms * 0.001))); };
     for (int n=0; n<numSamples; ++n)
     {
         for (int ch=0; ch<channels; ++ch)
@@ -95,12 +109,12 @@ void DrumShaperDSP::process(float* const* data, int numChannels, int numSamples)
                 const auto detector = run(detectorCoefficients[(size_t)ch][d], detectorStates[(size_t)ch][d], input);
                 const auto absolute = std::abs(detector);
                 const auto& cfg = dynamics[d];
-                const auto coeff = attackAlpha(absolute > detectorEnvelope[(size_t)ch][d] ? cfg.attackMs : cfg.releaseMs);
+                const auto coeff = absolute > detectorEnvelope[(size_t)ch][d] ? attackCoefficients[(size_t)d] : releaseCoefficients[(size_t)d];
                 auto& env = detectorEnvelope[(size_t)ch][d]; env = coeff * env + (1.0 - coeff) * absolute;
                 const auto level = 20.0 * std::log10(std::max(env, 1.0e-8));
                 const auto target = std::clamp((level - cfg.thresholdDb) / 12.0, 0.0, 1.0) * cfg.maxReductionDb;
                 auto& gr = gainReduction[(size_t)ch][d];
-                const auto grCoeff = attackAlpha(target > gr ? cfg.attackMs : cfg.releaseMs);
+                const auto grCoeff = target > gr ? attackCoefficients[(size_t)d] : releaseCoefficients[(size_t)d];
                 gr = grCoeff * gr + (1.0 - grCoeff) * target;
             }
             auto x = input;

@@ -44,12 +44,21 @@ juce::AudioProcessorValueTreeState::ParameterLayout DRMRESHAPEAudioProcessor::cr
 
 DRMRESHAPEAudioProcessor::DRMRESHAPEAudioProcessor()
     : AudioProcessor(BusesProperties().withInput("Input", AudioChannelSet::stereo(), true).withOutput("Output", AudioChannelSet::stereo(), true)),
-      parameters(*this, nullptr, "PARAMETERS", createParameterLayout()) {}
-
-float DRMRESHAPEAudioProcessor::value(const juce::AudioProcessorValueTreeState& s, const char* id) noexcept
+      parameters(*this, nullptr, "PARAMETERS", createParameterLayout())
 {
-    if (auto* p = s.getRawParameterValue(id)) return p->load(std::memory_order_relaxed);
-    return 0.0f;
+    for (int i=0; i<6; ++i)
+    {
+        const auto id=bandNames[i].toLowerCase();
+        bandParameters[(size_t)i] = { parameters.getRawParameterValue(id+"Gain"), parameters.getRawParameterValue(id+"Freq"), parameters.getRawParameterValue(id+"Q"), parameters.getRawParameterValue(id+"On") };
+    }
+    const juce::StringArray dynamicNames { "tight", "smooth" };
+    const juce::StringArray dynamicSuffixes { "Dyn", "Threshold", "Attack", "Release", "MaxGR" };
+    for (int i=0; i<2; ++i)
+        for (int p=0; p<5; ++p)
+            dynamicParameters[(size_t)i][(size_t)p] = parameters.getRawParameterValue(dynamicNames[i]+dynamicSuffixes[p]);
+    inputParameter=parameters.getRawParameterValue("input"); outputParameter=parameters.getRawParameterValue("output");
+    mixParameter=parameters.getRawParameterValue("mix"); compensationEnabledParameter=parameters.getRawParameterValue("comp");
+    compensationParameter=parameters.getRawParameterValue("compensation"); bypassParameter=parameters.getRawParameterValue("bypass");
 }
 
 drumshaper::Settings DRMRESHAPEAudioProcessor::getDspSettings() const noexcept
@@ -60,15 +69,11 @@ drumshaper::Settings DRMRESHAPEAudioProcessor::getDspSettings() const noexcept
     constexpr Shape shapes[] { Shape::lowShelf, Shape::bell, Shape::highShelf, Shape::bell, Shape::bell, Shape::highShelf };
     for (int i=0; i<6; ++i)
     {
-        auto id = bandNames[i].toLowerCase();
-        s.bands[(size_t)i] = { shapes[i], value(parameters, (id + "Freq").toRawUTF8()), value(parameters, (id + "Q").toRawUTF8()), value(parameters, (id + "Gain").toRawUTF8()), value(parameters, (id + "On").toRawUTF8()) > 0.5f };
+        const auto& p=bandParameters[(size_t)i];
+        s.bands[(size_t)i] = { shapes[i], read(p.frequency), read(p.q), read(p.gain), read(p.enabled) > 0.5f };
     }
-    auto setup = [this](const juce::String& name) {
-        return DynamicsSettings { value(parameters, (name+"Dyn").toRawUTF8()) > 0.5f,
-            value(parameters, (name+"Threshold").toRawUTF8()), value(parameters, (name+"Attack").toRawUTF8()),
-            value(parameters, (name+"Release").toRawUTF8()), value(parameters, (name+"MaxGR").toRawUTF8()) };
-    };
-    s.tightDynamics = setup("tight"); s.smoothDynamics = setup("smooth");
+    auto dynamics = [this](int index) { const auto& p=dynamicParameters[(size_t)index]; return DynamicsSettings { read(p[0])>0.5f, read(p[1]), read(p[2]), read(p[3]), read(p[4]) }; };
+    s.tightDynamics = dynamics(0); s.smoothDynamics = dynamics(1);
     return s;
 }
 
@@ -96,12 +101,12 @@ void DRMRESHAPEAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     juce::ScopedNoDenormals noDenormals;
     const auto channels = getTotalNumInputChannels(), samples = buffer.getNumSamples();
     for (int ch=getTotalNumOutputChannels(); ch<buffer.getNumChannels(); ++ch) buffer.clear(ch, 0, samples);
-    auto settings = getDspSettings(); dsp.setSettings(settings);
-    inputGain.setTargetValue(juce::Decibels::decibelsToGain(value(parameters, "input")));
-    auto outputDb = value(parameters, "output") + (value(parameters, "comp") > 0.5f ? value(parameters, "compensation") : 0.0f);
+    auto settings = getDspSettings(); dsp.setSettings(settings, buffer.getNumSamples());
+    inputGain.setTargetValue(juce::Decibels::decibelsToGain(read(inputParameter)));
+    auto outputDb = read(outputParameter) + (read(compensationEnabledParameter) > 0.5f ? read(compensationParameter) : 0.0f);
     outputGain.setTargetValue(juce::Decibels::decibelsToGain(outputDb));
-    wetMix.setTargetValue(value(parameters, "mix") / 100.0f);
-    const bool bypass = value(parameters, "bypass") > 0.5f;
+    wetMix.setTargetValue(read(mixParameter) / 100.0f);
+    const bool bypass = read(bypassParameter) > 0.5f;
     float inPeak=0, outPeak=0;
     const bool canMix = dryBuffer.getNumSamples() >= samples && dryBuffer.getNumChannels() >= channels;
     for (int n=0; n<samples; ++n)

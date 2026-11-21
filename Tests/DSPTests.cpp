@@ -43,7 +43,7 @@ int main()
     DrumShaperDSP staticDsp, dynamicDsp;
     staticDsp.prepare(48000, 256, 1); dynamicDsp.prepare(48000, 256, 1);
     auto staticSettings=dynamicSettings; staticSettings.tightDynamics.enabled=false;
-    staticDsp.setSettings(staticSettings); dynamicDsp.setSettings(dynamicSettings);
+    staticDsp.setSettings(staticSettings, signalLength); dynamicDsp.setSettings(dynamicSettings, signalLength);
     float* staticChannel[] { staticSignal.data() }; float* dynamicChannel[] { dynamicSignal.data() };
     staticDsp.process(staticChannel, 1, signalLength); dynamicDsp.process(dynamicChannel, 1, signalLength);
     double staticEnergy=0, dynamicEnergy=0;
