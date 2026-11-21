@@ -1,0 +1,33 @@
+name: Windows VST3 and Standalone
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: lukka/get-cmake@latest
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DDRMRESHAPE_BUILD_TESTS=ON
+      - name: Build VST3 and Standalone
+        run: cmake --build build --config Release --target DRMRESHAPE_VST3 DRMRESHAPE_Standalone DRMRESHAPE_DSPTests
+      - name: Run DSP checks
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Upload plugin artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: DRM-RESHAPE-Windows
+          path: |
+            build/DRMRESHAPE_artefacts/Release/VST3
+            build/DRMRESHAPE_artefacts/Release/Standalone

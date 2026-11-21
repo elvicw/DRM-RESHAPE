@@ -1,0 +1,46 @@
+name: Windows Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DDRMRESHAPE_BUILD_TESTS=ON
+      - name: Build and validate
+        run: |
+          cmake --build build --config Release --target DRMRESHAPE_VST3 DRMRESHAPE_Standalone DRMRESHAPE_DSPTests
+          ctest --test-dir build -C Release --output-on-failure
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Compress-Archive -Path build/DRMRESHAPE_artefacts/Release/VST3/DRM-RESHAPE.vst3,build/DRMRESHAPE_artefacts/Release/Standalone/DRM-RESHAPE.exe,README.md -DestinationPath release/DRM-RESHAPE-Windows-x64.zip
+      - name: Capture plugin window
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          $app = Start-Process -FilePath build/DRMRESHAPE_artefacts/Release/Standalone/DRM-RESHAPE.exe -PassThru
+          Start-Sleep -Seconds 12
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $bitmap.Save('release/DRM-RESHAPE-Screenshot.png', [System.Drawing.Imaging.ImageFormat]::Png)
+          $graphics.Dispose(); $bitmap.Dispose()
+          Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release/*
