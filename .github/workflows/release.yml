@@ -26,16 +26,34 @@ jobs:
           Compress-Archive -Path build/DRMRESHAPE_artefacts/Release/VST3/DRM-RESHAPE.vst3,build/DRMRESHAPE_artefacts/Release/Standalone/DRM-RESHAPE.exe,README.md -DestinationPath release/DRM-RESHAPE-Windows-x64.zip
       - name: Capture plugin window
         shell: pwsh
-        continue-on-error: true
         run: |
           $app = Start-Process -FilePath build/DRMRESHAPE_artefacts/Release/Standalone/DRM-RESHAPE.exe -PassThru
-          Start-Sleep -Seconds 12
+          $window = Get-Process -Id $app.Id
+          for ($i = 0; $i -lt 20 -and $window.MainWindowHandle -eq [IntPtr]::Zero; $i++) {
+            Start-Sleep -Seconds 1
+            $window.Refresh()
+          }
+          if ($window.MainWindowHandle -eq [IntPtr]::Zero) { throw 'Standalone plugin window did not open.' }
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
-          $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class WindowBounds {
+            [StructLayout(LayoutKind.Sequential)] public struct Rect { public int Left, Top, Right, Bottom; }
+            [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr handle, out Rect rect);
+            [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr handle);
+          }
+          '@
+          [WindowBounds]::SetForegroundWindow($window.MainWindowHandle) | Out-Null
+          $rect = New-Object WindowBounds+Rect
+          if (-not [WindowBounds]::GetWindowRect($window.MainWindowHandle, [ref]$rect)) { throw 'Unable to read plugin window bounds.' }
+          $width = $rect.Right - $rect.Left
+          $height = $rect.Bottom - $rect.Top
+          if ($width -lt 400 -or $height -lt 300) { throw "Unexpected plugin window size: ${width}x${height}." }
+          $bitmap = [System.Drawing.Bitmap]::new($width, $height)
           $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+          $graphics.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bitmap.Size)
           $bitmap.Save('release/DRM-RESHAPE-Screenshot.png', [System.Drawing.Imaging.ImageFormat]::Png)
           $graphics.Dispose(); $bitmap.Dispose()
           Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
