@@ -31,6 +31,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DRMRESHAPEAudioProcessor::cr
     p.emplace_back(floatParam("input", "Input", -24, 24, 0, " dB"));
     p.emplace_back(floatParam("output", "Output", -24, 24, 0, " dB"));
     p.emplace_back(floatParam("mix", "Mix", 0, 100, 100, "%"));
+    p.emplace_back(floatParam("compression", "Compression", 0, 100, 0, "%"));
+    p.emplace_back(floatParam("drive", "Saturation Drive", 0, 24, 0, " dB"));
     p.push_back(std::make_unique<AudioParameterBool>(ParameterID { "comp", 1 }, "Output Compensation", false));
     p.push_back(std::make_unique<AudioParameterBool>(ParameterID { "bypass", 1 }, "Global Bypass", false));
     p.emplace_back(floatParam("compensation", "Compensation", -12, 12, 0, " dB"));
@@ -61,6 +63,7 @@ DRMRESHAPEAudioProcessor::DRMRESHAPEAudioProcessor()
             dynamicParameters[(size_t)i][(size_t)p] = parameters.getRawParameterValue(dynamicNames[i]+dynamicSuffixes[p]);
     inputParameter=parameters.getRawParameterValue("input"); outputParameter=parameters.getRawParameterValue("output");
     mixParameter=parameters.getRawParameterValue("mix"); compensationEnabledParameter=parameters.getRawParameterValue("comp");
+    compressionParameter=parameters.getRawParameterValue("compression"); driveParameter=parameters.getRawParameterValue("drive");
     compensationParameter=parameters.getRawParameterValue("compensation"); bypassParameter=parameters.getRawParameterValue("bypass");
 }
 
@@ -83,6 +86,7 @@ drumshaper::Settings DRMRESHAPEAudioProcessor::getDspSettings() const noexcept
 void DRMRESHAPEAudioProcessor::prepareToPlay(double sr, int block)
 {
     dsp.prepare(sr, block, getTotalNumOutputChannels());
+    character.prepare(sr);
     dryBuffer.setSize(getTotalNumOutputChannels(), block, false, false, true);
     analyzerPosition = 0;
     for (size_t i=0; i<analyzerWindow.size(); ++i)
@@ -109,6 +113,7 @@ void DRMRESHAPEAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto outputDb = read(outputParameter) + (read(compensationEnabledParameter) > 0.5f ? read(compensationParameter) : 0.0f);
     outputGain.setTargetValue(juce::Decibels::decibelsToGain(outputDb));
     wetMix.setTargetValue(read(mixParameter) / 100.0f);
+    character.setParameters(read(compressionParameter), read(driveParameter));
     const bool bypass = read(bypassParameter) > 0.5f;
     float inPeak=0, outPeak=0;
     const bool canMix = dryBuffer.getNumSamples() >= samples && dryBuffer.getNumChannels() >= channels;
@@ -124,7 +129,10 @@ void DRMRESHAPEAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
         }
     }
     if (!bypass)
+    {
         dsp.process(buffer.getArrayOfWritePointers(), channels, samples);
+        character.process(buffer.getArrayOfWritePointers(), channels, samples);
+    }
     for (int n=0; n<samples; ++n)
     {
         const auto mix = wetMix.getNextValue();

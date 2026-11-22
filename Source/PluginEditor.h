@@ -6,20 +6,22 @@ class DRMRESHAPEAudioProcessorEditor final : public juce::AudioProcessorEditor, 
 {
 public:
     explicit DRMRESHAPEAudioProcessorEditor(DRMRESHAPEAudioProcessor&);
+    ~DRMRESHAPEAudioProcessorEditor() override;
     void paint(juce::Graphics&) override;
     void resized() override;
 private:
     void timerCallback() override { repaint(); }
     void updateModeDefaults();
-    DRMRESHAPEAudioProcessor& processor;
+    DRMRESHAPEAudioProcessor& audioProcessor;
+    std::unique_ptr<juce::LookAndFeel> hardwareLookAndFeel;
     juce::ComboBox mode;
     juce::TextButton advanced { "ADVANCED +" };
     juce::Label title, subtitle;
     std::array<juce::Slider, 6> gainControls, freqControls, qControls;
     std::array<juce::ToggleButton, 6> bandEnabled;
     std::array<juce::Label, 6> bandLabels;
-    juce::Slider input, output, mix;
-    juce::Label inputLabel, outputLabel, mixLabel;
+    juce::Slider input, output, mix, compression, drive;
+    juce::Label inputLabel, outputLabel, mixLabel, compressionLabel, driveLabel;
     std::array<juce::Slider, 8> dynamicsControls;
     std::array<juce::Label, 8> dynamicsLabels;
     std::array<juce::ToggleButton, 2> dynamicsEnabled;

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(DRM_RESHAPE VERSION 1.0.3 LANGUAGES C CXX)
+project(DRM_RESHAPE VERSION 1.1.0 LANGUAGES C CXX)
 
 option(DRMRESHAPE_BUILD_TESTS "Build DSP validation tests" ON)
 
@@ -32,7 +32,9 @@ target_sources(DRMRESHAPE PRIVATE
     Source/PluginEditor.cpp
     Source/PluginEditor.h
     Source/DrumShaperDSP.cpp
-    Source/DrumShaperDSP.h)
+    Source/DrumShaperDSP.h
+    Source/DrumShaperCharacter.cpp
+    Source/DrumShaperCharacter.h)
 
 target_compile_features(DRMRESHAPE PRIVATE cxx_std_17)
 target_compile_definitions(DRMRESHAPE PUBLIC
@@ -46,7 +48,7 @@ target_link_libraries(DRMRESHAPE PRIVATE
 
 if(DRMRESHAPE_BUILD_TESTS)
     enable_testing()
-    add_executable(DRMRESHAPE_DSPTests Tests/DSPTests.cpp Source/DrumShaperDSP.cpp)
+    add_executable(DRMRESHAPE_DSPTests Tests/DSPTests.cpp Source/DrumShaperDSP.cpp Source/DrumShaperCharacter.cpp)
     target_include_directories(DRMRESHAPE_DSPTests PRIVATE Source)
     target_compile_features(DRMRESHAPE_DSPTests PRIVATE cxx_std_17)
     target_link_libraries(DRMRESHAPE_DSPTests PRIVATE juce::juce_core juce::juce_audio_basics juce::juce_dsp)

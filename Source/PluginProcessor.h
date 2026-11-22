@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include "DrumShaperDSP.h"
+#include "DrumShaperCharacter.h"
 
 class DRMRESHAPEAudioProcessor final : public juce::AudioProcessor
 {
@@ -29,6 +30,7 @@ public:
     drumshaper::Settings getDspSettings() const noexcept;
     float getInputPeak() const noexcept { return inputPeak.load(); }
     float getOutputPeak() const noexcept { return outputPeak.load(); }
+    float getCompressionReductionDb() const noexcept { return character.getGainReductionDb(); }
     float getSpectrum(bool post, int bin) const noexcept { return (post ? spectrumPost : spectrumPre)[(size_t)juce::jlimit(0, 1024, bin)].load(std::memory_order_relaxed); }
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
 private:
@@ -37,9 +39,11 @@ private:
     std::array<BandParameterRefs, 6> bandParameters;
     std::array<std::array<RawParameter, 5>, 2> dynamicParameters {};
     RawParameter inputParameter=nullptr, outputParameter=nullptr, mixParameter=nullptr;
+    RawParameter compressionParameter=nullptr, driveParameter=nullptr;
     RawParameter compensationEnabledParameter=nullptr, compensationParameter=nullptr, bypassParameter=nullptr;
     static float read(RawParameter p) noexcept { return p != nullptr ? p->load(std::memory_order_relaxed) : 0.0f; }
     drumshaper::DrumShaperDSP dsp;
+    drumshaper::DrumShaperCharacter character;
     juce::AudioBuffer<float> dryBuffer;
     juce::dsp::FFT analyzerFFT { 11 };
     std::array<float, 2048> analyzerInput {}, analyzerOutput {}, analyzerWindow {};
