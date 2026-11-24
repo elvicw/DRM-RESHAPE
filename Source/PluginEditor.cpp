@@ -434,6 +434,16 @@ void DRMRESHAPEAudioProcessorEditor::applyAdvancedState()
 
 void DRMRESHAPEAudioProcessorEditor::timerCallback()
 {
+    // Numeric readouts hold their peak for 1.5 s, then fall at 15 dB/s so the digits stay readable.
+    constexpr float dt = 1.0f / 24.0f;
+    const float live[3] { juce::Decibels::gainToDecibels(audioProcessor.getInputPeak(), -60.0f),
+                          juce::Decibels::gainToDecibels(audioProcessor.getOutputPeak(), -60.0f),
+                          audioProcessor.getCompressionReductionDb() };
+    for (int i = 0; i < 3; ++i)
+    {
+        if (live[i] >= heldReadings[i]) { heldReadings[i] = live[i]; holdAgeSeconds[i] = 0.0f; }
+        else if ((holdAgeSeconds[i] += dt) > 1.5f) heldReadings[i] = juce::jmax(live[i], heldReadings[i] - 15.0f * dt);
+    }
     const auto s = (float)getWidth() / kRefWidth;
     repaint(juce::Rectangle<float>(870.0f * s, 40.0f * s, 540.0f * s, 125.0f * s).toNearestIntEdges());
     repaint(juce::Rectangle<float>(20.0f * s, 170.0f * s, 1380.0f * s, 355.0f * s).toNearestIntEdges());
@@ -669,12 +679,13 @@ void DRMRESHAPEAudioProcessorEditor::drawMeters(juce::Graphics& g) const
     const auto gr = audioProcessor.getCompressionReductionDb();
     const juce::Rectangle<float> meters[] { { 883, 46, 179, 116 }, { 1068, 46, 175, 116 }, { 1248, 46, 142, 116 } };
     const float readings[] { inputDb, outputDb, -gr };
+    const float shown[] { heldReadings[0], heldReadings[1], -heldReadings[2] };
     for (int i = 0; i < 3; ++i)
     {
         const auto m = meters[i];
         const auto window = juce::Rectangle<float>(m.getX() + 12.0f, m.getY() + 36.0f, m.getWidth() - 24.0f, 46.0f);
         g.setColour(blackFace); g.fillRoundedRectangle(window, 3.0f);
-        drawSevenSegmentReadout(g, window.reduced(6.0f, 3.0f), readings[i], redLed);
+        drawSevenSegmentReadout(g, window.reduced(6.0f, 3.0f), shown[i], redLed);
 
         // LED ladder: input/output fill from the left, gain reduction fills from the right.
         const auto bar = juce::Rectangle<float>(m.getX() + 16.0f, m.getY() + 87.0f, m.getWidth() - 32.0f, 9.0f);
