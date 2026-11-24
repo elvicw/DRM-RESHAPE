@@ -6,7 +6,7 @@
 namespace
 {
 // The whole editor is laid out in reference-image pixels and scaled to the window.
-constexpr float kRefWidth = 1418.0f, kRefBaseHeight = 1109.0f, kAdvancedExtra = 240.0f;
+constexpr float kRefWidth = 1418.0f, kRefBaseHeight = 1109.0f, kAdvancedExtra = 262.0f;
 
 const juce::StringArray labels { "LOW", "MID", "HIGH", "TIGHT", "SMOOTH", "AIR" };
 const juce::StringArray ids { "low", "mid", "high", "tight", "smooth", "air" };
@@ -252,7 +252,7 @@ public:
         auto r = button.getLocalBounds().toFloat();
         if (down) r = r.translated(0, 1.0f);
         g.setColour(juce::Colours::black.withAlpha(0.6f));
-        g.setFont(font(r.getHeight() * 0.33f).withExtraKerningFactor(0.06f));
+        g.setFont(font(r.getHeight() * 0.4f).withExtraKerningFactor(0.06f));
         g.drawText(button.getButtonText(), r.translated(0, 1.0f), juce::Justification::centred, false);
         g.setColour(button.findColour(juce::TextButton::textColourOffId));
         g.drawText(button.getButtonText(), r, juce::Justification::centred, false);
@@ -473,22 +473,22 @@ void DRMRESHAPEAudioProcessorEditor::resized()
         qControls[(size_t)i].setVisible(showBands);
         if (showBands)
         {
-            placeKnob(freqControls[(size_t)i], cx - 56.0f, 900.0f, 104.0f, 92.0f, 28.0f, 968.0f);
-            placeKnob(qControls[(size_t)i], cx + 56.0f, 900.0f, 104.0f, 92.0f, 28.0f, 968.0f);
+            placeKnob(freqControls[(size_t)i], cx - 56.0f, 955.0f, 104.0f, 92.0f, 28.0f, 1020.0f);
+            placeKnob(qControls[(size_t)i], cx + 56.0f, 955.0f, 104.0f, 92.0f, 28.0f, 1020.0f);
         }
     }
     dynamicsPage.setVisible(showAdvanced);
-    dynamicsPage.setBounds(R(1232, 836, 150, 40));
+    dynamicsPage.setBounds(R(1232, 824, 150, 34));
     for (int i = 0; i < 8; ++i)
     {
         dynamicsControls[(size_t)i].setVisible(showAdvanced && showDynamics);
         if (showAdvanced && showDynamics)
-            placeKnob(dynamicsControls[(size_t)i], 100.0f + (float)i * 174.0f, 930.0f, 120.0f, 100.0f, 30.0f, 1004.0f);
+            placeKnob(dynamicsControls[(size_t)i], 100.0f + (float)i * 174.0f, 985.0f, 108.0f, 100.0f, 30.0f, 1048.0f);
     }
     for (int i = 0; i < 2; ++i)
     {
         dynamicsEnabled[(size_t)i].setVisible(showAdvanced && showDynamics);
-        dynamicsEnabled[(size_t)i].setBounds(R(60.0f + (float)i * 330.0f, 836, 300, 40));
+        dynamicsEnabled[(size_t)i].setBounds(R(60.0f + (float)i * 330.0f, 866, 300, 36));
     }
 
     placeKnob(input, 115.0f, 925.0f + E, 145.0f, 108.0f, 34.0f, 1005.0f + E);
@@ -596,25 +596,25 @@ void DRMRESHAPEAudioProcessorEditor::drawStaticChassis(juce::Graphics& g) const
     panel({ 10.0f, 535.0f, 1398.0f, 277.0f });
     sectionTitle("EQUALIZER / TONE", 557.0f, 36.0f, 1384.0f);
     for (int i = 0; i < 6; ++i)
-        drawTextCentred(g, labels[i], juce::Rectangle<float>(190.0f, 30.0f).withCentre({ 155.0f + (float)i * 221.2f, 589.0f }), 26.0f, cream);
+        drawTextCentred(g, labels[i], juce::Rectangle<float>(190.0f, 30.0f).withCentre({ 155.0f + (float)i * 221.2f, 590.0f }), 26.0f, cream);
 
     if (showAdvanced)
     {
         panel({ 10.0f, 818.0f, 1398.0f, E - 6.0f });
-        sectionTitle(showDynamics ? "DYNAMIC PROCESSING" : "FREQUENCY / Q", 818.0f + 14.0f, 36.0f, 1384.0f);
+        sectionTitle(showDynamics ? "DYNAMIC PROCESSING" : "FREQUENCY / Q", 841.0f, 36.0f, 1384.0f);
         if (!showDynamics)
             for (int i = 0; i < 6; ++i)
             {
                 const auto cx = 155.0f + (float)i * 221.2f;
-                drawTextCentred(g, labels[i], juce::Rectangle<float>(160.0f, 22.0f).withCentre({ cx, 850.0f }), 20.0f, cream);
-                drawTextCentred(g, "FREQ", juce::Rectangle<float>(90.0f, 18.0f).withCentre({ cx - 56.0f, 976.0f + 18.0f }), 14.0f, creamDim);
-                drawTextCentred(g, "Q", juce::Rectangle<float>(90.0f, 18.0f).withCentre({ cx + 56.0f, 976.0f + 18.0f }), 14.0f, creamDim);
+                drawTextCentred(g, labels[i], juce::Rectangle<float>(160.0f, 22.0f).withCentre({ cx, 882.0f }), 20.0f, cream);
+                drawTextCentred(g, "FREQ", juce::Rectangle<float>(90.0f, 18.0f).withCentre({ cx - 56.0f, 1050.0f }), 14.0f, creamDim);
+                drawTextCentred(g, "Q", juce::Rectangle<float>(90.0f, 18.0f).withCentre({ cx + 56.0f, 1050.0f }), 14.0f, creamDim);
             }
         else
         {
             const juce::StringArray cap { "THRESHOLD", "ATTACK", "RELEASE", "MAX GR" };
             for (int i = 0; i < 8; ++i)
-                drawTextCentred(g, juce::String(i < 4 ? "TIGHT " : "SMOOTH ") + cap[i % 4], juce::Rectangle<float>(170.0f, 22.0f).withCentre({ 100.0f + (float)i * 174.0f, 876.0f }), 15.0f, cream);
+                drawTextCentred(g, juce::String(i < 4 ? "TIGHT " : "SMOOTH ") + cap[i % 4], juce::Rectangle<float>(170.0f, 22.0f).withCentre({ 100.0f + (float)i * 174.0f, 920.0f }), 15.0f, cream);
         }
     }
 
