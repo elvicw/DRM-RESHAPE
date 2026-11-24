@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <chrono>
+#include <vector>
 
 int main()
 {
@@ -72,7 +73,7 @@ int main()
 
     for (auto type : { CompressorType::transparent, CompressorType::vintage, CompressorType::slam })
     {
-        std::array<float, characterSamples> offTone = dryTone, onTone = dryTone;
+        std::vector<float> offTone(dryTone.begin(), dryTone.end()), onTone(dryTone.begin(), dryTone.end());
         DrumShaperCharacter off, on;
         off.prepare(48000); on.prepare(48000);
         off.setParameters(0.0f, 0.0f, type); on.setParameters(100.0f, 0.0f, type);
@@ -93,7 +94,7 @@ int main()
     }
 
     // Running compression and saturation as separate stages matches the combined stage.
-    std::array<float, characterSamples> combinedTone = dryTone, splitTone = dryTone;
+    std::vector<float> combinedTone(dryTone.begin(), dryTone.end()), splitTone(dryTone.begin(), dryTone.end());
     DrumShaperCharacter combined, split;
     combined.prepare(48000); split.prepare(48000);
     combined.setParameters(60.0f, 9.0f, CompressorType::vintage); split.setParameters(60.0f, 9.0f, CompressorType::vintage);
