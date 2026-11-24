@@ -32,6 +32,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout DRMRESHAPEAudioProcessor::cr
     p.emplace_back(floatParam("output", "Output", -24, 24, 0, " dB"));
     p.emplace_back(floatParam("mix", "Mix", 0, 100, 100, "%"));
     p.emplace_back(floatParam("compression", "Compression", 0, 100, 0, "%"));
+    p.push_back(std::make_unique<AudioParameterChoice>(ParameterID { "compType", 1 }, "Compression Type", StringArray { "Transparent", "Vintage", "Slam" }, 0));
+    p.push_back(std::make_unique<AudioParameterChoice>(ParameterID { "compOrder", 1 }, "Compression Position", StringArray { "Post-EQ", "Pre-EQ" }, 0));
     p.emplace_back(floatParam("drive", "Saturation Drive", 0, 24, 0, " dB"));
     p.push_back(std::make_unique<AudioParameterBool>(ParameterID { "comp", 1 }, "Output Compensation", false));
     p.push_back(std::make_unique<AudioParameterBool>(ParameterID { "bypass", 1 }, "Global Bypass", false));
@@ -64,6 +66,8 @@ DRMRESHAPEAudioProcessor::DRMRESHAPEAudioProcessor()
     inputParameter=parameters.getRawParameterValue("input"); outputParameter=parameters.getRawParameterValue("output");
     mixParameter=parameters.getRawParameterValue("mix"); compensationEnabledParameter=parameters.getRawParameterValue("comp");
     compressionParameter=parameters.getRawParameterValue("compression"); driveParameter=parameters.getRawParameterValue("drive");
+    compTypeParameter=parameters.getRawParameterValue("compType");
+    compOrderParameter=parameters.getRawParameterValue("compOrder");
     compensationParameter=parameters.getRawParameterValue("compensation"); bypassParameter=parameters.getRawParameterValue("bypass");
 }
 
@@ -113,7 +117,8 @@ void DRMRESHAPEAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     auto outputDb = read(outputParameter) + (read(compensationEnabledParameter) > 0.5f ? read(compensationParameter) : 0.0f);
     outputGain.setTargetValue(juce::Decibels::decibelsToGain(outputDb));
     wetMix.setTargetValue(read(mixParameter) / 100.0f);
-    character.setParameters(read(compressionParameter), read(driveParameter));
+    character.setParameters(read(compressionParameter), read(driveParameter),
+                            (drumshaper::CompressorType)juce::jlimit(0, 2, (int)std::lround(read(compTypeParameter))));
     const bool bypass = read(bypassParameter) > 0.5f;
     float inPeak=0, outPeak=0;
     const bool canMix = dryBuffer.getNumSamples() >= samples && dryBuffer.getNumChannels() >= channels;
@@ -130,8 +135,12 @@ void DRMRESHAPEAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, ju
     }
     if (!bypass)
     {
-        dsp.process(buffer.getArrayOfWritePointers(), channels, samples);
-        character.process(buffer.getArrayOfWritePointers(), channels, samples);
+        auto* data = buffer.getArrayOfWritePointers();
+        const bool compressBeforeEq = read(compOrderParameter) > 0.5f;
+        if (compressBeforeEq) character.process(data, channels, samples, drumshaper::CharacterStage::compression);
+        dsp.process(data, channels, samples);
+        if (!compressBeforeEq) character.process(data, channels, samples, drumshaper::CharacterStage::compression);
+        character.process(data, channels, samples, drumshaper::CharacterStage::saturation);
     }
     for (int n=0; n<samples; ++n)
     {

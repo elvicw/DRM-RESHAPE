@@ -6,7 +6,7 @@
 namespace
 {
 // The whole editor is laid out in reference-image pixels and scaled to the window.
-constexpr float kRefWidth = 1418.0f, kRefBaseHeight = 1109.0f, kAdvancedExtra = 262.0f;
+constexpr float kRefWidth = 1418.0f, kRefBaseHeight = 1153.0f, kAdvancedExtra = 262.0f;
 
 const juce::StringArray labels { "LOW", "MID", "HIGH", "TIGHT", "SMOOTH", "AIR" };
 const juce::StringArray ids { "low", "mid", "high", "tight", "smooth", "air" };
@@ -83,25 +83,22 @@ unsigned segmentMask(juce::juce_wchar c)
     return c == '-' ? 0x40u : 0u;
 }
 
-// Fixed "-dd.d" cell layout so unlit segments stay visible like real hardware.
+// Fixed "-dd" cell layout (whole dB) so unlit segments stay visible like real hardware.
 void drawSevenSegmentReadout(juce::Graphics& g, juce::Rectangle<float> area, float value, juce::Colour lit)
 {
-    value = juce::jlimit(-99.9f, 99.9f, value);
-    if (std::abs(value) < 0.05f) value = 0.0f;
-    const auto tenths = (int)std::lround(std::abs(value) * 10.0f);
-    const unsigned masks[] { value < 0.0f ? 0x40u : 0u, tenths >= 100 ? segmentMask((juce::juce_wchar)('0' + tenths / 100)) : 0u,
-                             segmentMask((juce::juce_wchar)('0' + (tenths / 10) % 10)), segmentMask((juce::juce_wchar)('0' + tenths % 10)) };
+    const auto whole = juce::jlimit(0, 99, (int)std::lround(std::abs(value)));
+    const unsigned masks[] { value < 0.0f && whole > 0 ? 0x40u : 0u, whole >= 10 ? segmentMask((juce::juce_wchar)('0' + whole / 10)) : 0u,
+                             segmentMask((juce::juce_wchar)('0' + whole % 10)) };
     const auto cellH = area.getHeight() * 0.8f, cellW = cellH * 0.5f, gap = cellW * 0.42f;
-    const auto totalW = 4.0f * cellW + 3.0f * gap;
+    const auto totalW = 3.0f * cellW + 2.0f * gap;
     auto x = area.getCentreX() - totalW * 0.5f;
     const auto y = area.getCentreY() - cellH * 0.5f;
     juce::Graphics::ScopedSaveState state(g);
     g.addTransform(juce::AffineTransform::shear(-0.16f, 0.0f).translated(0.16f * area.getCentreY(), 0.0f));
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 3; ++i)
     {
         drawSegmentCell(g, { x, y, cellW, cellH }, masks[i], lit);
         x += cellW + gap;
-        if (i == 2) { g.setColour(lit); g.fillEllipse(x - gap * 0.72f, y + cellH - cellW * 0.22f, cellW * 0.26f, cellW * 0.26f); }
     }
 }
 
@@ -347,11 +344,19 @@ DRMRESHAPEAudioProcessorEditor::DRMRESHAPEAudioProcessorEditor(DRMRESHAPEAudioPr
         addAndMakeVisible(s);
     };
 
-    mode.addItemList({ "KICK", "SNARE", "TOMS", "OVERHEADS", "ROOM", "FULL KIT" }, 1);
+    mode.addItemList({ "KICK", "SNARE", "TOMS", "OVERHEADS", "ROOM", "FULL KIT", "HI-HATS" }, 1);
     mode.setName("Instrument");
     addAndMakeVisible(mode);
     modeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(audioProcessor.parameters, "mode", mode);
     mode.onChange = [this] { updateModeDefaults(); };
+    compressionType.addItemList({ "TRANSPARENT", "VINTAGE", "SLAM" }, 1);
+    compressionType.setName("Compression type");
+    addAndMakeVisible(compressionType);
+    compressionTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(audioProcessor.parameters, "compType", compressionType);
+    compressionOrder.addItemList({ "POST EQ", "PRE EQ" }, 1);
+    compressionOrder.setName("Compression position");
+    addAndMakeVisible(compressionOrder);
+    compressionOrderAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(audioProcessor.parameters, "compOrder", compressionOrder);
 
     advanced.setColour(juce::TextButton::textColourOffId, cream);
     advanced.onClick = [this] { showAdvanced = !showAdvanced; applyAdvancedState(); };
@@ -507,6 +512,8 @@ void DRMRESHAPEAudioProcessorEditor::resized()
     placeKnob(compression, 709.0f, 925.0f + E, 145.0f, 108.0f, 34.0f, 1005.0f + E);
     placeKnob(drive, 911.0f, 925.0f + E, 145.0f, 108.0f, 34.0f, 1005.0f + E);
     levelComp.setBounds(R(1117, 872.0f + E, 190, 120));
+    compressionType.setBounds(R(600.0f, 1046.0f + E, 124, 34));
+    compressionOrder.setBounds(R(730.0f, 1046.0f + E, 112, 34));
 
     if (chassis.isNull() || chassisWidth != getWidth() || chassisHeight != getHeight()) chassis = {};
 }
@@ -629,7 +636,7 @@ void DRMRESHAPEAudioProcessorEditor::drawStaticChassis(juce::Graphics& g) const
     }
 
     // Input / dynamics / output panel.
-    panel({ 10.0f, 818.0f + E, 1398.0f, 230.0f });
+    panel({ 10.0f, 818.0f + E, 1398.0f, 274.0f });
     const juce::String bottomNames[] { "INPUT", "OUTPUT", "MIX", "COMPRESSION", "DRIVE" };
     const float bottomX[] { 115, 296, 484, 709, 911 };
     for (int i = 0; i < 5; ++i)
@@ -637,13 +644,13 @@ void DRMRESHAPEAudioProcessorEditor::drawStaticChassis(juce::Graphics& g) const
     g.setColour(juce::Colours::black.withAlpha(0.8f));
     for (const auto x : { 592.0f, 1017.0f })
     {
-        g.fillRect(x, 846.0f + E, 2.0f, 176.0f);
-        g.setColour(juce::Colours::white.withAlpha(0.07f)); g.fillRect(x + 2.0f, 846.0f + E, 1.0f, 176.0f);
+        g.fillRect(x, 846.0f + E, 2.0f, 220.0f);
+        g.setColour(juce::Colours::white.withAlpha(0.07f)); g.fillRect(x + 2.0f, 846.0f + E, 1.0f, 220.0f);
         g.setColour(juce::Colours::black.withAlpha(0.8f));
     }
 
     // Footer.
-    const auto fy = 1068.0f + E;
+    const auto fy = 1112.0f + E;
     const juce::String footer = "MODEL: DRM-01  /  MINIMUM PHASE  /  ZERO LATENCY  /  STEREO";
     const auto fw = textWidth(font(17.0f, false).withExtraKerningFactor(0.08f), footer);
     g.setColour(creamDim.withAlpha(0.5f));
