@@ -651,6 +651,13 @@ void DRMRESHAPEAudioProcessorEditor::drawStaticChassis(juce::Graphics& g) const
         const auto x = 86.0f + (float)(std::log(hzLabels[i] / 20.0) / std::log(1000.0)) * 1184.0f;
         drawTextCentred(g, hzText[i], juce::Rectangle<float>(60.0f, 22.0f).withCentre({ juce::jlimit(112.0f, 1255.0f, x), 503.0f }), 18.0f, cream, true, 0.0f);
     }
+    drawTextCentred(g, "IN", juce::Rectangle<float>(40.0f, 22.0f).withCentre({ 1297.0f, 226.0f }), 16.0f, amber);
+    drawTextCentred(g, "OUT", juce::Rectangle<float>(50.0f, 22.0f).withCentre({ 1338.0f, 226.0f }), 16.0f, ember);
+    for (int i = 0; i <= 5; ++i)
+        drawTextCentred(g, juce::String(-12 * i), juce::Rectangle<float>(50.0f, 20.0f).withCentre({ 1378.0f, 250.0f + (float)i * 46.0f }), 17.0f, cream, true, 0.0f);
+    const juce::StringArray eqScale { "+18", "0", "-18" };
+    for (int i = 0; i < 3; ++i)
+        drawTextCentred(g, eqScale[i], juce::Rectangle<float>(40.0f, 18.0f).withCentre({ 1247.0f, 235.0f + (float)i * 123.5f + (i == 0 ? 10.0f : i == 2 ? -10.0f : 0.0f) }), 15.0f, amber.withAlpha(0.9f), true, 0.0f);
     for (int i = 0; i <= 5; ++i)
         drawTextCentred(g, juce::String(-12 * i), juce::Rectangle<float>(60.0f, 20.0f).withCentre({ 54.0f, 235.0f + (float)i * 49.4f }), 17.0f, cream, true, 0.0f);
 }
@@ -693,21 +700,71 @@ void DRMRESHAPEAudioProcessorEditor::drawAnalyzer(juce::Graphics& g) const
     for (int i = 0; i <= 5; ++i) g.drawHorizontalLine((int)(top + (float)i * (bottom - top) / 5.0f), left, right);
 
     const auto sampleRate = audioProcessor.getSampleRate() > 0.0 ? audioProcessor.getSampleRate() : 44100.0;
-    const auto drawSpectrum = [&](bool post, juce::Colour colour, float thickness)
+    const auto dbToY = [](float db) { return bottom - (juce::jlimit(-60.0f, 0.0f, db) + 60.0f) * ((bottom - top) / 60.0f); };
+    // Reads the analyzer bins covering [f0, f1]; narrower than one bin falls back to interpolation.
+    const auto bandDb = [&](bool post, double f0, double f1)
     {
-        juce::Path path;
-        for (int x = 0; x <= 700; ++x)
+        const auto b0 = f0 * 2048.0 / sampleRate, b1 = f1 * 2048.0 / sampleRate;
+        float magnitude = 0.0f;
+        if (b1 - b0 < 1.0)
         {
-            const auto hz = 20.0 * std::pow(1000.0, x / 700.0);
-            const auto bin = juce::jlimit(1, 1024, (int)std::round(hz * 2048.0 / sampleRate));
-            const auto db = juce::jlimit(-60.0f, 0.0f, juce::Decibels::gainToDecibels(audioProcessor.getSpectrum(post, bin), -72.0f));
-            const auto px = left + (float)x / 700.0f * width, py = bottom - (db + 60.0f) * ((bottom - top) / 60.0f);
-            if (x == 0) path.startNewSubPath(px, py); else path.lineTo(px, py);
+            const auto centre = 0.5 * (b0 + b1);
+            const auto lo = juce::jlimit(1, 1023, (int)std::floor(centre));
+            const auto t = (float)juce::jlimit(0.0, 1.0, centre - (double)lo);
+            magnitude = audioProcessor.getSpectrum(post, lo) * (1.0f - t) + audioProcessor.getSpectrum(post, lo + 1) * t;
         }
-        g.setColour(colour); g.strokePath(path, juce::PathStrokeType(thickness));
+        else
+            for (int bin = juce::jlimit(1, 1024, (int)std::ceil(b0)); bin <= juce::jlimit(1, 1024, (int)std::floor(b1)); ++bin)
+                magnitude = juce::jmax(magnitude, audioProcessor.getSpectrum(post, bin));
+        return juce::Decibels::gainToDecibels(magnitude, -72.0f);
     };
-    if (showPre) drawSpectrum(false, creamDim, 1.5f);
-    if (showPost) drawSpectrum(true, ember, 2.0f);
+    constexpr int bars = 160;
+    const auto barW = width / (float)bars;
+    if (showPost)
+    {
+        const auto gradient = juce::ColourGradient(juce::Colour(0xff5b1209), 0.0f, bottom, juce::Colour(0xffff5a1c), 0.0f, top, false);
+        for (int pass = 0; pass < 2; ++pass)
+        {
+            g.setGradientFill(gradient);
+            g.setOpacity(pass == 0 ? 0.22f : 0.95f);
+            for (int k = 0; k < bars; ++k)
+            {
+                const auto f0 = 20.0 * std::pow(1000.0, (double)k / bars), f1 = 20.0 * std::pow(1000.0, (double)(k + 1) / bars);
+                const auto y = dbToY(bandDb(true, f0, f1));
+                if (y >= bottom - 0.5f) continue;
+                const auto inset = pass == 0 ? -1.2f : 0.45f;
+                g.fillRect(left + (float)k * barW + inset, y - (pass == 0 ? 1.0f : 0.0f), barW - 2.0f * inset, bottom - y + (pass == 0 ? 1.0f : 0.0f));
+            }
+        }
+    }
+    if (showPre)
+    {
+        juce::Path trace;
+        for (int k = 0; k < bars; ++k)
+        {
+            const auto f0 = 20.0 * std::pow(1000.0, (double)k / bars), f1 = 20.0 * std::pow(1000.0, (double)(k + 1) / bars);
+            const auto y = dbToY(bandDb(false, f0, f1));
+            if (k == 0) trace.startNewSubPath(left, y);
+            trace.lineTo(left + ((float)k + 0.5f) * barW, y);
+        }
+        g.setColour(creamBright.withAlpha(0.8f)); g.strokePath(trace, juce::PathStrokeType(1.4f));
+    }
+
+    // Input/output peak ladders share the dB scale printed beside them.
+    const auto ladder = [&](float x, float peakDb, juce::Colour colour)
+    {
+        constexpr int segments = 30;
+        const auto frac = juce::jlimit(0.0f, 1.0f, (peakDb + 60.0f) / 60.0f);
+        const auto segH = (480.0f - 250.0f) / (float)segments;
+        for (int k = 0; k < segments; ++k)
+        {
+            const auto lit = (float)(segments - k) / (float)segments <= frac + 1.0e-4f;
+            g.setColour(lit ? (k < 3 ? redLed : colour) : juce::Colour(0xff17120f));
+            g.fillRect(x, 250.0f + (float)k * segH + 0.7f, 17.0f, segH - 1.4f);
+        }
+    };
+    ladder(1288.0f, juce::Decibels::gainToDecibels(audioProcessor.getInputPeak(), -60.0f), amber);
+    ladder(1326.0f, juce::Decibels::gainToDecibels(audioProcessor.getOutputPeak(), -60.0f), ember);
     if (showResponse)
     {
         const auto settings = audioProcessor.getDspSettings();
@@ -719,12 +776,13 @@ void DRMRESHAPEAudioProcessorEditor::drawAnalyzer(juce::Graphics& g) const
             const auto px = left + (float)norm * width, py = (top + bottom) * 0.5f - db * ((bottom - top) / 36.0f);
             if (x == 0) response.startNewSubPath(px, py); else response.lineTo(px, py);
         }
-        g.setColour(amber); g.strokePath(response, juce::PathStrokeType(2.5f));
+        g.setColour(amber.withAlpha(0.3f)); g.strokePath(response, juce::PathStrokeType(5.0f));
+        g.setColour(amber); g.strokePath(response, juce::PathStrokeType(2.2f));
     }
 
     const auto tab = [&](const juce::String& t, juce::Rectangle<float> r, bool active)
     {
-        drawTextCentred(g, t, r, 20.0f, active ? redLed : cream, true, 0.05f);
+        drawTextCentred(g, t, r, 20.0f, active ? redLed : creamDim, true, 0.05f);
         if (active) { g.setColour(redLed); g.fillRect(r.getX() + 4.0f, r.getBottom() - 2.0f, r.getWidth() - 8.0f, 2.5f); }
     };
     tab("PRE", { 82.0f, 190.0f, 70.0f, 28.0f }, showPre);
