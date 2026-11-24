@@ -1,6 +1,7 @@
 #include "PluginEditor.h"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
 
 namespace
 {
@@ -14,6 +15,13 @@ const juce::Colour cream { 0xffd6cbb0 }, creamDim { 0xff8f8672 }, creamBright { 
                    redLed { 0xffff3b22 }, amber { 0xffe9a23a }, ember { 0xffff6a2a },
                    metalDark { 0xff17181a }, metalMid { 0xff232527 }, metalLight { 0xff303234 },
                    blackFace { 0xff060607 }, gridLine { 0xff25201d };
+
+float textWidth(const juce::Font& f, const juce::String& t)
+{
+    juce::GlyphArrangement glyphs;
+    glyphs.addLineOfText(f, t, 0.0f, 0.0f);
+    return glyphs.getBoundingBox(0, -1, true).getWidth();
+}
 
 juce::Font font(float size, bool bold = true)
 {
@@ -44,6 +52,57 @@ void drawTextCentred(juce::Graphics& g, const juce::String& t, juce::Rectangle<f
 {
     g.setColour(c); g.setFont(font(size, bold).withExtraKerningFactor(kerning));
     g.drawText(t, r, juce::Justification::centred, false);
+}
+
+
+// Seven-segment cell: bit order a(top), b(top-right), c(bottom-right), d(bottom), e(bottom-left), f(top-left), g(middle).
+void drawSegmentCell(juce::Graphics& g, juce::Rectangle<float> cell, unsigned mask, juce::Colour lit)
+{
+    const auto t = cell.getHeight() * 0.12f, x0 = cell.getX(), x1 = cell.getRight(), y0 = cell.getY(), y1 = cell.getBottom(), ym = cell.getCentreY();
+    const auto horizontal = [&](float y) {
+        juce::Path p; p.startNewSubPath(x0 + t * 0.5f, y); p.lineTo(x0 + t * 1.3f, y - t * 0.5f); p.lineTo(x1 - t * 1.3f, y - t * 0.5f);
+        p.lineTo(x1 - t * 0.5f, y); p.lineTo(x1 - t * 1.3f, y + t * 0.5f); p.lineTo(x0 + t * 1.3f, y + t * 0.5f); p.closeSubPath(); return p; };
+    const auto vertical = [&](float x, float ya, float yb) {
+        juce::Path p; p.startNewSubPath(x, ya + t * 0.5f); p.lineTo(x + t * 0.5f, ya + t * 1.3f); p.lineTo(x + t * 0.5f, yb - t * 1.3f);
+        p.lineTo(x, yb - t * 0.5f); p.lineTo(x - t * 0.5f, yb - t * 1.3f); p.lineTo(x - t * 0.5f, ya + t * 1.3f); p.closeSubPath(); return p; };
+    const juce::Path segs[] { horizontal(y0 + t * 0.5f), vertical(x1 - t * 0.5f, y0, ym), vertical(x1 - t * 0.5f, ym, y1), horizontal(y1 - t * 0.5f),
+                              vertical(x0 + t * 0.5f, ym, y1), vertical(x0 + t * 0.5f, y0, ym), horizontal(ym) };
+    for (int i = 0; i < 7; ++i)
+    {
+        const auto on = (mask >> i) & 1u;
+        if (on) { g.setColour(lit.withAlpha(0.22f)); g.strokePath(segs[i], juce::PathStrokeType(t * 0.9f, juce::PathStrokeType::curved)); }
+        g.setColour(on ? lit : lit.withAlpha(0.06f));
+        g.fillPath(segs[i]);
+    }
+}
+
+unsigned segmentMask(juce::juce_wchar c)
+{
+    static const unsigned digits[10] { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
+    if (c >= '0' && c <= '9') return digits[c - '0'];
+    return c == '-' ? 0x40u : 0u;
+}
+
+// Fixed "-dd.d" cell layout so unlit segments stay visible like real hardware.
+void drawSevenSegmentReadout(juce::Graphics& g, juce::Rectangle<float> area, float value, juce::Colour lit)
+{
+    value = juce::jlimit(-99.9f, 99.9f, value);
+    if (std::abs(value) < 0.05f) value = 0.0f;
+    const auto tenths = (int)std::lround(std::abs(value) * 10.0f);
+    const unsigned masks[] { value < 0.0f ? 0x40u : 0u, tenths >= 100 ? segmentMask((juce::juce_wchar)('0' + tenths / 100)) : 0u,
+                             segmentMask((juce::juce_wchar)('0' + (tenths / 10) % 10)), segmentMask((juce::juce_wchar)('0' + tenths % 10)) };
+    const auto cellH = area.getHeight() * 0.8f, cellW = cellH * 0.5f, gap = cellW * 0.42f;
+    const auto totalW = 4.0f * cellW + 3.0f * gap;
+    auto x = area.getCentreX() - totalW * 0.5f;
+    const auto y = area.getCentreY() - cellH * 0.5f;
+    juce::Graphics::ScopedSaveState state(g);
+    g.addTransform(juce::AffineTransform::shear(-0.16f, 0.0f).translated(0.16f * area.getCentreY(), 0.0f));
+    for (int i = 0; i < 4; ++i)
+    {
+        drawSegmentCell(g, { x, y, cellW, cellH }, masks[i], lit);
+        x += cellW + gap;
+        if (i == 2) { g.setColour(lit); g.fillEllipse(x - gap * 0.72f, y + cellH - cellW * 0.22f, cellW * 0.26f, cellW * 0.26f); }
+    }
 }
 
 class HardwareLookAndFeel final : public juce::LookAndFeel_V4
@@ -493,7 +552,7 @@ void DRMRESHAPEAudioProcessorEditor::drawStaticChassis(juce::Graphics& g) const
     };
     const auto sectionTitle = [&](const juce::String& t, float y, float x0, float x1)
     {
-        const auto w = font(23.0f).withExtraKerningFactor(0.05f).getStringWidthFloat(t);
+        const auto w = textWidth(font(23.0f).withExtraKerningFactor(0.05f), t);
         g.setColour(creamDim.withAlpha(0.55f));
         g.drawHorizontalLine((int)y, x0, x0 + 24.0f);
         g.drawHorizontalLine((int)y, x0 + 52.0f + w, x1);
@@ -576,7 +635,7 @@ void DRMRESHAPEAudioProcessorEditor::drawStaticChassis(juce::Graphics& g) const
     // Footer.
     const auto fy = 1068.0f + E;
     const juce::String footer = "MODEL: DRM-01  /  MINIMUM PHASE  /  ZERO LATENCY  /  STEREO";
-    const auto fw = font(17.0f, false).withExtraKerningFactor(0.08f).getStringWidthFloat(footer);
+    const auto fw = textWidth(font(17.0f, false).withExtraKerningFactor(0.08f), footer);
     g.setColour(creamDim.withAlpha(0.5f));
     g.drawHorizontalLine((int)fy, 400.0f, kRefWidth * 0.5f - fw * 0.5f - 24.0f);
     g.drawHorizontalLine((int)fy, kRefWidth * 0.5f + fw * 0.5f + 24.0f, 1018.0f);
@@ -606,16 +665,22 @@ void DRMRESHAPEAudioProcessorEditor::drawMeters(juce::Graphics& g) const
     for (int i = 0; i < 3; ++i)
     {
         const auto m = meters[i];
-        const auto window = juce::Rectangle<float>(m.getX() + 12.0f, m.getY() + 36.0f, m.getWidth() - 24.0f, 44.0f);
+        const auto window = juce::Rectangle<float>(m.getX() + 12.0f, m.getY() + 36.0f, m.getWidth() - 24.0f, 46.0f);
         g.setColour(blackFace); g.fillRoundedRectangle(window, 3.0f);
-        drawTextCentred(g, juce::String(readings[i], 1), window, 34.0f, redLed, true, 0.0f);
+        drawSevenSegmentReadout(g, window.reduced(6.0f, 3.0f), readings[i], redLed);
 
-        const auto bar = juce::Rectangle<float>(m.getX() + 16.0f, m.getY() + 86.0f, m.getWidth() - 32.0f, 9.0f);
-        g.setColour(juce::Colour(0xff1b1311)); g.fillRect(bar);
+        // LED ladder: input/output fill from the left, gain reduction fills from the right.
+        const auto bar = juce::Rectangle<float>(m.getX() + 16.0f, m.getY() + 87.0f, m.getWidth() - 32.0f, 9.0f);
         const auto frac = i == 2 ? juce::jlimit(0.0f, 1.0f, gr / 24.0f) : juce::jlimit(0.0f, 1.0f, (readings[i] + 48.0f) / 48.0f);
-        g.setColour(ember);
-        if (i == 2) g.fillRect(bar.withLeft(bar.getRight() - bar.getWidth() * frac));
-        else g.fillRect(bar.withWidth(bar.getWidth() * frac));
+        constexpr int segments = 24;
+        const auto segW = bar.getWidth() / (float)segments;
+        for (int k = 0; k < segments; ++k)
+        {
+            const auto pos = (float)(k + 1) / (float)segments;
+            const auto lit = i == 2 ? (1.0f - (float)k / (float)segments) <= frac + 1.0e-4f : pos <= frac + 1.0e-4f;
+            g.setColour(lit ? (k > segments * 5 / 6 && i != 2 ? redLed : ember) : juce::Colour(0xff1f1210));
+            g.fillRect(bar.getX() + (float)k * segW + 0.8f, bar.getY(), segW - 1.6f, bar.getHeight());
+        }
     }
 }
 
@@ -670,7 +735,7 @@ void DRMRESHAPEAudioProcessorEditor::drawAnalyzer(juce::Graphics& g) const
 void DRMRESHAPEAudioProcessorEditor::paint(juce::Graphics& g)
 {
     const auto scale = juce::jmax(1.0f, juce::Component::getApproximateScaleFactorForComponent(this));
-    if (chassis.isNull() || chassisWidth != getWidth() || chassisHeight != getHeight() || chassisScale != scale)
+    if (chassis.isNull() || chassisWidth != getWidth() || chassisHeight != getHeight() || ! juce::approximatelyEqual(chassisScale, scale))
         rebuildChassis(scale);
     g.drawImage(chassis, getLocalBounds().toFloat());
     g.addTransform(juce::AffineTransform::scale((float)getWidth() / kRefWidth, (float)getHeight() / refHeight()));
