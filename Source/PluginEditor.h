@@ -45,6 +45,9 @@ private:
     juce::Image chassis;
     float chassisScale = 0.0f;
     int chassisWidth = 0, chassisHeight = 0;
+    // Peak-hold values for the numeric readouts: input dB, output dB, gain reduction dB.
+    float heldReadings[3] { -60.0f, -60.0f, 0.0f };
+    float holdAgeSeconds[3] {};
     bool showAdvanced = false;
     bool showDynamics = false;
     bool showPre = true, showPost = true, showResponse = true;
