@@ -23,12 +23,13 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
-          Compress-Archive -Path build/DRMRESHAPE_artefacts/Release/VST3/DRM-RESHAPE.vst3,build/DRMRESHAPE_artefacts/Release/Standalone/DRM-RESHAPE.exe,README.md -DestinationPath release/DRM-RESHAPE-Windows-x64.zip
+          Compress-Archive -Path build/DRMRESHAPE_artefacts/Release/VST3/DRM-RESHAPE-*.vst3,build/DRMRESHAPE_artefacts/Release/Standalone/DRM-RESHAPE-*.exe,README.md -DestinationPath release/DRM-RESHAPE-Windows-x64.zip
       - name: Capture plugin window
         shell: pwsh
         run: |
           Set-DisplayResolution -Width 1600 -Height 1200 -Force
-          $app = Start-Process -FilePath build/DRMRESHAPE_artefacts/Release/Standalone/DRM-RESHAPE.exe -PassThru
+          $exe = (Get-ChildItem build/DRMRESHAPE_artefacts/Release/Standalone/DRM-RESHAPE-*.exe | Select-Object -First 1).FullName
+          $app = Start-Process -FilePath $exe -PassThru
           $window = Get-Process -Id $app.Id
           for ($i = 0; $i -lt 20 -and $window.MainWindowHandle -eq [IntPtr]::Zero; $i++) {
             Start-Sleep -Seconds 1

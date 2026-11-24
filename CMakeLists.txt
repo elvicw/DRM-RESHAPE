@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(DRM_RESHAPE VERSION 1.3.0 LANGUAGES C CXX)
+project(DRM_RESHAPE VERSION 1.4.0 LANGUAGES C CXX)
 
 option(DRMRESHAPE_BUILD_TESTS "Build DSP validation tests" ON)
 
@@ -15,7 +15,7 @@ juce_add_plugin(DRMRESHAPE
     BUNDLE_ID "audio.yeahwaah.drmreshape"
     PLUGIN_MANUFACTURER_CODE Ywaa
     PLUGIN_CODE DrSh
-    PRODUCT_NAME "DRM-RESHAPE"
+    PRODUCT_NAME "DRM-RESHAPE-${PROJECT_VERSION}"
     DESCRIPTION "Drum-focused equalizer and tone shaper"
     FORMATS VST3 Standalone
     IS_SYNTH FALSE
