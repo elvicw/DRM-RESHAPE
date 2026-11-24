@@ -30,7 +30,7 @@ private:
 
     DRMRESHAPEAudioProcessor& audioProcessor;
     std::unique_ptr<juce::LookAndFeel> hardwareLookAndFeel;
-    juce::ComboBox mode;
+    juce::ComboBox mode, compressionType, compressionOrder;
     juce::TextButton advanced { "ADVANCED +" };
     std::array<juce::Slider, 6> gainControls, freqControls, qControls;
     juce::Slider input, output, mix, compression, drive;
@@ -40,7 +40,7 @@ private:
     IlluminatedButton levelComp { "LEVEL COMP" };
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>> buttonAttachments;
     std::vector<std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment>> attachments;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment, compressionTypeAttachment, compressionOrderAttachment;
     juce::ComponentBoundsConstrainer constrainer;
     juce::Image chassis;
     float chassisScale = 0.0f;

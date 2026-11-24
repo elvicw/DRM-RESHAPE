@@ -4,6 +4,7 @@
 #include <cmath>
 #include <iostream>
 #include <chrono>
+#include <vector>
 
 int main()
 {
@@ -69,6 +70,40 @@ int main()
     }
     assert(compressedEnergy < dryEnergy * 0.35);
     assert(compressor.getGainReductionDb() > 8.0f);
+
+    for (auto type : { CompressorType::transparent, CompressorType::vintage, CompressorType::slam })
+    {
+        std::vector<float> offTone(dryTone.begin(), dryTone.end()), onTone(dryTone.begin(), dryTone.end());
+        DrumShaperCharacter off, on;
+        off.prepare(48000); on.prepare(48000);
+        off.setParameters(0.0f, 0.0f, type); on.setParameters(100.0f, 0.0f, type);
+        float* offChannel[] { offTone.data() };
+        float* onChannel[] { onTone.data() };
+        off.process(offChannel, 1, characterSamples); on.process(onChannel, 1, characterSamples);
+        double offError = 0.0, onEnergy = 0.0, dryTotal = 0.0;
+        for (int n=12000; n<characterSamples; ++n)
+        {
+            offError = std::max(offError, std::abs((double)offTone[(size_t)n] - dryTone[(size_t)n]));
+            onEnergy += (double)onTone[(size_t)n] * onTone[(size_t)n];
+            dryTotal += (double)dryTone[(size_t)n] * dryTone[(size_t)n];
+            assert(std::isfinite(onTone[(size_t)n]));
+        }
+        assert(offError < 1.0e-4);
+        assert(on.getGainReductionDb() > 2.0f);
+        assert(onEnergy != dryTotal);
+    }
+
+    // Running compression and saturation as separate stages matches the combined stage.
+    std::vector<float> combinedTone(dryTone.begin(), dryTone.end()), splitTone(dryTone.begin(), dryTone.end());
+    DrumShaperCharacter combined, split;
+    combined.prepare(48000); split.prepare(48000);
+    combined.setParameters(60.0f, 9.0f, CompressorType::vintage); split.setParameters(60.0f, 9.0f, CompressorType::vintage);
+    float* combinedChannel[] { combinedTone.data() };
+    float* splitChannel[] { splitTone.data() };
+    combined.process(combinedChannel, 1, characterSamples);
+    split.process(splitChannel, 1, characterSamples, CharacterStage::compression);
+    split.process(splitChannel, 1, characterSamples, CharacterStage::saturation);
+    for (int n=0; n<characterSamples; ++n) assert(std::abs(combinedTone[(size_t)n] - splitTone[(size_t)n]) < 1.0e-3f);
 
     DrumShaperCharacter saturator;
     saturator.prepare(48000);

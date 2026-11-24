@@ -40,7 +40,7 @@ private:
     std::array<std::array<RawParameter, 5>, 2> dynamicParameters {};
     RawParameter inputParameter=nullptr, outputParameter=nullptr, mixParameter=nullptr;
     RawParameter compressionParameter=nullptr, driveParameter=nullptr;
-    RawParameter compensationEnabledParameter=nullptr, compensationParameter=nullptr, bypassParameter=nullptr;
+    RawParameter compensationEnabledParameter=nullptr, compensationParameter=nullptr, bypassParameter=nullptr, compTypeParameter=nullptr, compOrderParameter=nullptr;
     static float read(RawParameter p) noexcept { return p != nullptr ? p->load(std::memory_order_relaxed) : 0.0f; }
     drumshaper::DrumShaperDSP dsp;
     drumshaper::DrumShaperCharacter character;
