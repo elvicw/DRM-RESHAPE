@@ -1,6 +1,6 @@
 # DRM-RESHAPE
 
-**DRM-RESHAPE** is a drum-focused equalizer and tone shaper by **yeahwaah audio**. It uses an instrument-first workflow with editable controls for Kick, Snare, Toms, Overheads, Room, and Full Kit.
+**DRM-RESHAPE** is a drum-focused equalizer and tone shaper by **yeahwaah audio**. It uses an instrument-first workflow with editable controls for Kick, Snare, Toms, Overheads, Room, Full Kit, and Hi-Hats.
 
 ## Build
 

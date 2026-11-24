@@ -452,9 +452,9 @@ void DRMRESHAPEAudioProcessorEditor::timerCallback()
 void DRMRESHAPEAudioProcessorEditor::updateModeDefaults()
 {
     const int m = mode.getSelectedItemIndex();
-    const float values[6][6] = { {65,800,7000,280,4800,14000}, {150,1800,7500,450,5500,14500}, {90,700,6500,320,4200,13000}, {120,1000,9000,300,6000,15500}, {55,500,8500,220,5000,15000}, {60,650,8000,250,5000,15000} };
+    const float values[7][6] = { {65,800,7000,280,4800,14000}, {150,1800,7500,450,5500,14500}, {90,700,6500,320,4200,13000}, {120,1000,9000,300,6000,15500}, {55,500,8500,220,5000,15000}, {60,650,8000,250,5000,15000}, {250,1000,8000,400,5500,15000} };
     for (int i = 0; i < 6; ++i)
-        if (auto* param = audioProcessor.parameters.getParameter(ids[i] + "Freq")) param->setValueNotifyingHost(param->getNormalisableRange().convertTo0to1(values[juce::jlimit(0, 5, m)][i]));
+        if (auto* param = audioProcessor.parameters.getParameter(ids[i] + "Freq")) param->setValueNotifyingHost(param->getNormalisableRange().convertTo0to1(values[juce::jlimit(0, 6, m)][i]));
 }
 
 void DRMRESHAPEAudioProcessorEditor::resized()

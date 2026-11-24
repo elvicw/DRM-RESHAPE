@@ -17,7 +17,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout DRMRESHAPEAudioProcessor::cr
 {
     using namespace juce;
     std::vector<std::unique_ptr<RangedAudioParameter>> p;
-    p.push_back(std::make_unique<AudioParameterChoice>(ParameterID { "mode", 1 }, "Instrument", StringArray { "Kick", "Snare", "Toms", "Overheads", "Room", "Full Kit" }, 0));
+    p.push_back(std::make_unique<AudioParameterChoice>(ParameterID { "mode", 1 }, "Instrument", StringArray { "Kick", "Snare", "Toms", "Overheads", "Room", "Full Kit", "Hi-Hats" }, 0));
     const float freqDefaults[] { 65, 800, 7000, 280, 4800, 14000 };
     const float gainRanges[] { 15, 15, 15, 12, 12, 15 };
     for (int i=0; i<6; ++i)
