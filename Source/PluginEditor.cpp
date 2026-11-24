@@ -694,13 +694,13 @@ void DRMRESHAPEAudioProcessorEditor::drawMeters(juce::Graphics& g) const
 void DRMRESHAPEAudioProcessorEditor::drawAnalyzer(juce::Graphics& g) const
 {
     constexpr float left = 86.0f, right = 1270.0f, top = 235.0f, bottom = 482.0f, width = right - left;
-    const auto freqToX = [](double hz) { return left + (float)(std::log(std::clamp(hz, 20.0, 20000.0) / 20.0) / std::log(1000.0)) * width; };
+    const auto freqToX = [&](double hz) { return left + (float)(std::log(std::clamp(hz, 20.0, 20000.0) / 20.0) / std::log(1000.0)) * width; };
     g.setColour(gridLine);
     for (const double hz : { 50.0, 100.0, 200.0, 500.0, 1000.0, 2000.0, 5000.0, 10000.0 }) g.drawVerticalLine((int)freqToX(hz), top, bottom);
     for (int i = 0; i <= 5; ++i) g.drawHorizontalLine((int)(top + (float)i * (bottom - top) / 5.0f), left, right);
 
     const auto sampleRate = audioProcessor.getSampleRate() > 0.0 ? audioProcessor.getSampleRate() : 44100.0;
-    const auto dbToY = [](float db) { return bottom - (juce::jlimit(-60.0f, 0.0f, db) + 60.0f) * ((bottom - top) / 60.0f); };
+    const auto dbToY = [&](float db) { return bottom - (juce::jlimit(-60.0f, 0.0f, db) + 60.0f) * ((bottom - top) / 60.0f); };
     // Reads the analyzer bins covering [f0, f1]; narrower than one bin falls back to interpolation.
     const auto bandDb = [&](bool post, double f0, double f1)
     {
